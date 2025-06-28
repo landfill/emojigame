@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko"> <!-- Language set to Korean -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이모지 제스처 게임</title> <!-- Translated title -->
+    <!-- Tailwind CSS CDN for sleek styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for the Play button icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom styles for consistent font and rounded corners */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F1F5F9; /* Light gray-blue background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            color: #334155; /* Darker text for contrast */
+        }
+        /* Ensure all interactive elements have rounded corners */
+        input, button, .rounded-lg, .rounded-xl {
+            border-radius: 0.5rem; /* Equivalent to Tailwind's rounded-lg */
+        }
+        /* Custom modal styles */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Hide scrollbar for a cleaner look */
+        body::-webkit-scrollbar {
+            display: none;
+        }
+        body {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+    </style>
+</head>
+<body>
+    <!-- Message Box for feedback -->
+    <div id="messageBox" class="message-box">
+        <p id="messageText" class="text-xl font-semibold mb-4"></p>
+        <button id="messageBoxClose" class="bg-yellow-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-yellow-500 transition-colors">
+            확인 <!-- Translated to Korean -->
+        </button>
+    </div>
+
+    <!-- Intro Screen -->
+    <div id="introScreen" class="flex flex-col items-center justify-center p-8 bg-white rounded-xl shadow-lg max-w-sm w-full text-center">
+        <h1 class="text-6xl mb-4 font-light">🤔💭 이모지 제스처 게임</h1> <!-- Translated title -->
+        <p class="text-xl text-gray-500 mb-8">이모지 단서로 숨겨진 속담을 맞춰보세요.</p> <!-- Translated description -->
+        <button id="playButton" class="bg-yellow-400 text-gray-800 font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-yellow-500 transition-colors flex items-center justify-center text-2xl">
+            <i class="fas fa-play mr-3"></i> 플레이 <!-- Translated button text -->
+        </button>
+    </div>
+
+    <!-- Game Screen (initially hidden) -->
+    <div id="gameScreen" class="hidden flex flex-col items-center w-full max-w-xl mx-auto min-h-[500px] md:min-h-[600px] lg:min-h-[700px]">
+        <!-- Game Header -->
+        <header class="fixed top-0 left-0 right-0 bg-white bg-opacity-95 p-4 shadow-md flex justify-center w-full z-10 rounded-b-lg">
+            <div class="flex space-x-6 text-center">
+                <div>
+                    <span id="correctStat" class="block text-2xl font-bold text-gray-800">0</span>
+                    <span class="text-xs text-gray-500 uppercase tracking-wider">맞힌 개수</span> <!-- Translated label -->
+                </div>
+                <div>
+                    <span id="questionsStat" class="block text-2xl font-bold text-gray-800">0</span>
+                    <span class="text-xs text-gray-500 uppercase tracking-wider">문제 수</span> <!-- Translated label -->
+                </div>
+                <div>
+                    <span id="accuracyStat" class="block text-2xl font-bold text-gray-800">0%</span>
+                    <span class="text-xs text-gray-500 uppercase tracking-wider">정확도</span> <!-- Translated label -->
+                </div>
+            </div>
+        </header>
+
+        <!-- Gameplay Area -->
+        <main class="flex flex-col items-center justify-center flex-grow w-full mt-24 px-4 pb-4">
+            <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md text-center">
+                <p id="emojiClue" class="text-7xl mb-6 font-semibold"></p>
+                <p id="hintText" class="text-gray-500 text-lg mb-6 hidden font-light"></p> <!-- Hint text -->
+
+                <input type="text" id="userGuess" placeholder="여기에 추측을 입력하세요..." class="w-full p-4 mb-6 text-xl text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"> <!-- Translated placeholder -->
+
+                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center">
+                    <button id="submitButton" class="bg-yellow-400 text-gray-800 font-bold py-3 px-6 rounded-lg shadow-md hover:bg-yellow-500 transition-colors flex-1 text-xl border border-yellow-500">
+                        제출 <!-- Translated button text -->
+                    </button>
+                    <button id="hintButton" class="bg-white text-gray-700 font-bold py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition-colors flex-1 text-xl border border-gray-300">
+                        힌트가 필요하세요? <!-- Translated button text -->
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase and app state
+        let app;
+        let db;
+        let auth;
+        let userId;
+
+        // Game state variables
+        let correctCount = 0;
+        let questionsCount = 0;
+        let currentQuestion = null;
+        let usedSayings = new Set(); // Using a Set for efficient lookup of used sayings
+        let isHintShown = false;
+        let isFetchingQuestion = false;
+
+        // DOM elements
+        const introScreen = document.getElementById('introScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const playButton = document.getElementById('playButton');
+        const submitButton = document.getElementById('submitButton');
+        const hintButton = document.getElementById('hintButton');
+        const emojiClue = document.getElementById('emojiClue');
+        const hintText = document.getElementById('hintText');
+        const userGuessInput = document.getElementById('userGuess');
+        const correctStat = document.getElementById('correctStat');
+        const questionsStat = document.getElementById('questionsStat');
+        const accuracyStat = document.getElementById('accuracyStat');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageBoxClose = document.getElementById('messageBoxClose');
+
+        // Firebase initialization and authentication
+        async function initializeFirebase() {
+            try {
+                // Retrieve global variables provided by the Canvas environment
+                // For GitHub Pages deployment, you would likely hardcode these if not using advanced build steps.
+                // However, for Firestore persistence, you need a Firebase project's config.
+                // Replace 'default-app-id' with a unique ID for your app if you choose to manually set it.
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-emoji-charades-app-id';
+
+                // If deploying outside Canvas, you MUST replace __firebase_config with your actual Firebase project config.
+                // Get this from your Firebase project settings -> Project settings -> General -> Your apps -> Firebase SDK snippet -> Config
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                    // Example Firebase Config (REPLACE WITH YOUR OWN)
+                    // apiKey: "YOUR_FIREBASE_API_KEY",
+                    // authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                    // projectId: "YOUR_PROJECT_ID",
+                    // storageBucket: "YOUR_PROJECT_ID.appspot.com",
+                    // messagingSenderId: "YOUR_SENDER_ID",
+                    // appId: "YOUR_FIREBASE_APP_ID",
+                    // measurementId: "YOUR_MEASUREMENT_ID"
+                };
+
+                // The __initial_auth_token is provided by Canvas for seamless login.
+                // For GitHub Pages, anonymous sign-in or other auth methods (e.g., Google Sign-In) would be handled differently.
+                // For simplicity, we will default to anonymous sign-in if __initial_auth_token is not present.
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+
+                // Initialize Firebase app
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate user
+                if (initialAuthToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Signed in with custom token.");
+                    } catch (error) {
+                        console.warn("Custom token sign-in failed, attempting anonymous sign-in:", error);
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously due to custom token failure.");
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously as no custom token was provided.");
+                }
+                userId = auth.currentUser?.uid || crypto.randomUUID(); // Use auth.currentUser.uid or a random UUID if anonymous
+
+                console.log("Firebase initialized and user authenticated:", userId);
+
+                // Load previously used sayings from Firestore for the current user
+                // Using a collection specific to the app and user: /artifacts/{appId}/users/{userId}/usedSayings
+                const usedSayingsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/usedSayings`);
+                const q = query(usedSayingsCollectionRef);
+                onSnapshot(q, (snapshot) => {
+                    usedSayings.clear(); // Clear existing sayings
+                    snapshot.forEach(doc => {
+                        usedSayings.add(doc.data().saying);
+                    });
+                    console.log("Loaded used sayings:", usedSayings);
+                }, (error) => {
+                    console.error("Error fetching used sayings:", error);
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                showMessageBox("Firebase 초기화 오류. 나중에 다시 시도해주세요.", "error"); // Translated message
+            }
+        }
+
+        // --- Helper Functions ---
+
+        // Shows a custom message box
+        function showMessageBox(message, type = 'info', extraContent = null) { // Added extraContent parameter
+            messageText.innerHTML = message; // Use innerHTML to allow for more complex content
+            if (type === 'error') {
+                messageText.classList.add('text-red-600');
+                messageText.classList.remove('text-green-600', 'text-yellow-600', 'text-gray-800');
+                if (extraContent) {
+                    // Append the correct answer for incorrect guesses
+                    messageText.innerHTML += `<br><br><span class="text-gray-700 text-lg">정답: <span class="font-bold">${extraContent}</span></span>`; // Translated "Correct Answer"
+                }
+            } else if (type === 'success') {
+                messageText.classList.add('text-green-600');
+                messageText.classList.remove('text-red-600', 'text-yellow-600', 'text-gray-800');
+            } else if (type === 'partial') {
+                messageText.classList.add('text-yellow-600');
+                messageText.classList.remove('text-red-600', 'text-green-600', 'text-gray-800');
+            } else { // info or default
+                messageText.classList.add('text-gray-800');
+                messageText.classList.remove('text-red-600', 'text-green-600', 'text-yellow-600');
+            }
+            messageBox.classList.add('show');
+            // Accessibility: Focus on close button
+            messageBoxClose.focus();
+        }
+
+        // Hides the custom message box
+        function hideMessageBox() {
+            messageBox.classList.remove('show');
+        }
+
+        // Updates the game statistics in the header
+        function updateStats() {
+            correctStat.textContent = correctCount;
+            questionsStat.textContent = questionsCount;
+            const accuracy = questionsCount === 0 ? 0 : Math.round((correctCount / questionsCount) * 100);
+            accuracyStat.textContent = `${accuracy}%`;
+        }
+
+        // Normalizes text for comparison (lowercase, remove punctuation, common words)
+        function normalizeText(text) {
+            if (!text) return "";
+            text = text.toLowerCase();
+            text = text.replace(/[.,/#!$%^&*;:{}=\-_`~()?'"“”‘’]/g, ''); // Remove punctuation
+            text = text.replace(/\s+/g, ' ').trim(); // Replace multiple spaces with single space and trim
+            // For Korean, direct word-based filtering of common words might be less effective
+            // and might require a more sophisticated Korean NLP library.
+            // For now, keeping only punctuation and space removal.
+            return text;
+        }
+
+        // Checks the user's answer against the correct saying
+        function checkAnswer(userAnswer, correctAnswer) {
+            const normalizedUser = normalizeText(userAnswer);
+            const normalizedCorrect = normalizeText(correctAnswer);
+
+            if (normalizedUser === normalizedCorrect) {
+                return { isCorrect: true, feedback: "완벽해요! 정답입니다!", type: "success" }; // Translated
+            }
+
+            // For Korean partial matches, a simple word split might not be robust
+            // as Korean is an agglutinative language. However, for basic proverbs,
+            // this might still give some relevant matches.
+            const userWords = new Set(normalizedUser.split(/\s+/).filter(Boolean)); // Split by space, filter empty strings
+            const correctWords = normalizedCorrect.split(/\s+/).filter(Boolean);
+            let matchingWords = 0;
+
+            correctWords.forEach(word => {
+                if (userWords.has(word) && word !== '') {
+                    matchingWords++;
+                }
+            });
+
+            // Calculate percentage of matching words from the correct answer
+            const matchPercentage = correctWords.length === 0 ? 0 : (matchingWords / correctWords.length) * 100;
+
+            if (matchPercentage >= 60) {
+                return { isCorrect: true, feedback: "충분히 가깝네요! 정답으로 처리됩니다!", type: "partial" }; // Translated
+            }
+
+            return { isCorrect: false, feedback: "정확하지 않아요, 하지만 잘하셨어요!", type: "error" }; // Translated
+        }
+
+        // Saves a used saying to Firestore
+        async function saveUsedSaying(saying) {
+            if (usedSayings.has(saying)) {
+                return; // Already recorded
+            }
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const usedSayingsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/usedSayings`);
+                await addDoc(usedSayingsCollectionRef, { saying: saying, timestamp: new Date() });
+                usedSayings.add(saying); // Add to local set immediately
+                console.log("Saying saved to Firestore:", saying);
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                // Don't block gameplay if saving fails
+            }
+        }
+
+        // Fetches a new emoji charade from the Gemini API via Cloudflare Worker
+        async function generateQuestion() {
+            if (isFetchingQuestion) return; // Prevent multiple simultaneous fetches
+            isFetchingQuestion = true;
+
+            emojiClue.textContent = '로드 중...'; // Translated
+            hintText.textContent = '';
+            hintText.classList.add('hidden');
+            isHintShown = false;
+            userGuessInput.value = '';
+            userGuessInput.disabled = true;
+            submitButton.disabled = true;
+            hintButton.disabled = true;
+
+            try {
+                const categories = ["자연", "시간", "성공", "사랑", "돈", "지혜", "행동", "감정", "일상생활", "동물", "음식", "여행", "기술", "스포츠"]; // Korean categories
+                const styles = ["속담", "관용어", "일반적인 표현"]; // Korean styles
+                const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+                const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+                const randomSeed = Math.random().toString(36).substring(2, 10); // A simple random string
+
+                // Modified prompt to explicitly request "simple and very commonly known Korean saying"
+                const prompt = `Generate a random simple and very commonly known Korean saying, idiom, or proverb related to "${randomCategory}" or a "${randomStyle}", and represent it with 3 to 6 distinct emojis. Also, provide a short, helpful hint (1-2 sentences) in Korean. Ensure the saying is not in this list of used sayings: [${Array.from(usedSayings).map(s => `"${s}"`).join(', ')}]. Random seed: ${randomSeed}.`;
+
+                const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "saying": { "type": "STRING" },
+                                "emojis": { "type": "STRING" },
+                                "hint": { "type": "STRING" }
+                            },
+                            required: ["saying", "emojis", "hint"]
+                        }
+                    }
+                };
+
+                // !!! IMPORTANT: Replace "YOUR_CLOUDFLARE_WORKER_URL_HERE" with your actual Cloudflare Worker URL. !!!
+                // Example: https://my-emoji-charades-worker.your-account-id.workers.dev
+                const cloudflareWorkerUrl = "https://emojigame.letthelightsurroundyou.workers.dev/";
+
+                // No API key directly in client-side code when using a Worker proxy!
+                // const apiKey = "YOUR_GEMINI_API_KEY_HERE"; // <--- 이 줄은 더 이상 필요 없습니다.
+
+                const response = await fetch(cloudflareWorkerUrl, { // Call the Cloudflare Worker URL
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    const parsedData = JSON.parse(jsonString);
+
+                    // Validate response structure
+                    if (parsedData.saying && parsedData.emojis && parsedData.hint) {
+                        // Check for duplicates and regenerate if necessary
+                        if (usedSayings.has(normalizeText(parsedData.saying))) {
+                            console.warn("Generated a duplicate saying. Regenerating...");
+                            return generateQuestion(); // Recursively call to get a new one
+                        }
+
+                        currentQuestion = {
+                            saying: parsedData.saying,
+                            emojis: parsedData.emojis,
+                            hint: parsedData.hint
+                        };
+                        emojiClue.textContent = currentQuestion.emojis;
+                        hintText.textContent = currentQuestion.hint;
+                        userGuessInput.disabled = false;
+                        submitButton.disabled = false;
+                        hintButton.disabled = false;
+                        console.log("New question generated:", currentQuestion);
+                        return true; // Indicate success
+                    } else {
+                        throw new Error("Invalid structure from API: " + JSON.stringify(parsedData));
+                    }
+                } else {
+                    throw new Error("No candidates or content found in API response.");
+                }
+            } catch (error) {
+                console.error("Error generating question:", error);
+                showMessageBox("새로운 이모지 문제를 가져오지 못했습니다. 다시 시도해주세요.", "error"); // Translated message
+                emojiClue.textContent = '로드 중 오류...'; // Translated
+                userGuessInput.disabled = false;
+                submitButton.disabled = false;
+                hintButton.disabled = false;
+                return false; // Indicate failure
+            } finally {
+                isFetchingQuestion = false;
+            }
+        }
+
+        // --- Event Handlers ---
+
+        // Handles the Play button click
+        playButton.addEventListener('click', async () => {
+            introScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            updateStats();
+            await generateQuestion(); // Start the first question
+            userGuessInput.focus(); // Focus on input after game starts
+        });
+
+        // Handles the Submit button click
+        submitButton.addEventListener('click', async () => {
+            if (isFetchingQuestion) return; // Don't submit if still loading
+            const userAnswer = userGuessInput.value.trim();
+            if (!userAnswer) {
+                showMessageBox("추측을 입력해주세요!", "info"); // Translated message
+                return;
+            }
+
+            if (!currentQuestion) {
+                showMessageBox("문제가 로드되지 않았습니다. 기다리거나 새로고침 해주세요.", "error"); // Translated message
+                return;
+            }
+
+            questionsCount++;
+            const { isCorrect, feedback, type } = checkAnswer(userAnswer, currentQuestion.saying);
+
+            if (isCorrect) {
+                correctCount++;
+                saveUsedSaying(currentQuestion.saying); // Save if correct
+            }
+            updateStats();
+            // Show feedback, and if incorrect, show the correct answer
+            showMessageBox(feedback, type, isCorrect ? null : currentQuestion.saying); // Pass correct answer for incorrect guesses
+            userGuessInput.value = ''; // Clear input for next round
+            userGuessInput.disabled = true;
+            submitButton.disabled = true;
+            hintButton.disabled = true;
+        });
+
+        // Handles the hint button click
+        hintButton.addEventListener('click', () => {
+            isHintShown = !isHintShown;
+            if (isHintShown) {
+                hintText.classList.remove('hidden');
+                hintButton.textContent = "힌트 숨기기"; // Translated
+            } else {
+                hintText.classList.add('hidden');
+                hintButton.textContent = "힌트가 필요하세요?"; // Translated
+            }
+        });
+
+        // Handles closing the message box and fetching next question
+        messageBoxClose.addEventListener('click', async () => {
+            hideMessageBox();
+            await generateQuestion();
+            userGuessInput.focus(); // Focus on input after next question loads
+        });
+
+        // Allows submitting with Enter key
+        userGuessInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent default form submission behavior
+                submitButton.click();
+            }
+        });
+
+        // Initialize Firebase on window load
+        window.onload = async () => {
+            await initializeFirebase();
+            // Show the intro screen after Firebase is ready
+            introScreen.classList.remove('hidden');
+            gameScreen.classList.add('hidden'); // Ensure game screen is hidden
+        };
+    </script>
+</body>
+</html>
